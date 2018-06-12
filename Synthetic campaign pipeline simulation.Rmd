@@ -26,7 +26,7 @@ dollars <- function(nbr) {
 # Generate pipeline data (in millions)
 # Note that e.g. rep(1, 6) is shorthand for c(1, 1, 1, 1, 1, 1)
 sol_hivar <- c(rep(1, 6), rep(2, 3), rep(5, 9), 13, 80)
-sol_medvar <- c(rep(2, 3), rep(5, 9), rep(10, 6), 14, 25)
+sol_medvar <- c(rep(2, 5), rep(5, 9), rep(10, 4), 15, 40)
 sol_lowvar <- c(rep(5, 8), rep(6, 4), rep(10, 7), 16)
 sol_novar <- rep(7.5, 20)
 
