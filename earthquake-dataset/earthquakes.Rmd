@@ -1,0 +1,217 @@
+---
+title: "Significant earthquakes"
+output:
+  html_notebook:
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+---
+
+A demonstration of the Central Limit Theorem (CLT) using an [earthquake dataset](https://www.kaggle.com/usgs/earthquake-database) from the USGS via Kaggle.
+
+# Setup
+
+Load packages used in the analysis.
+
+```{r setup, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+```
+
+Import the data.
+
+```{r}
+earthquakes <- read.csv('earthquakes.csv') %>%
+  mutate(
+    n = 1
+    , Date = as.character(Date) %>% str_sub(1, 10)
+    , date = Date %>% mdy(quiet = TRUE)
+  )
+earthquakes[is.na(earthquakes$date) %>% which(), 'date'] <-
+  earthquakes[is.na(earthquakes$date) %>% which(), 'Date'] %>% ymd()
+```
+
+Create a summary function.
+
+```{r}
+summary_stats <- function(data_frame, var_name) {
+  data.frame(
+    count = length(data_frame[, var_name] %>% unlist())
+    , min = min(data_frame[, var_name] %>% unlist())
+    , median = median(data_frame[, var_name] %>% unlist())
+    , max = max(data_frame[, var_name] %>% unlist())
+    , mean = mean(data_frame[, var_name] %>% unlist())
+    , sd = sd(data_frame[, var_name] %>% unlist())
+    )
+}
+```
+
+
+# The normal distribution mistake
+
+```{r}
+eq.summary <- summary_stats(earthquakes, 'Magnitude')
+print(eq.summary)
+```
+
+Naturally, just because a mean and standard deviation can be computed for a dataset doesn't mean anything sensible can be said about the mechanism underlying the data generating process. Say we made the mistake of applying a normal (Gaussian) distribution to the data and computing the implied counts of earthquakes above a certain magnitude. To illustrate, here's a quick plot of the `r eq.summary$count %>% I()` earthquake magnitudes with the distribution N(`r eq.summary$mean %>% round(2) %>% I()`, `r eq.summary$sd %>% round(2) %>% I()`<sup>2</sup>) superimposed.
+
+```{r, fig.width = 6, fig.height = 3}
+bw <- .1
+earthquakes %>%
+  ggplot(aes(x = Magnitude)) +
+  geom_histogram(binwidth = bw, alpha = .5) +
+  labs(title = 'Count of 5.5+ magnitude earthquakes, 1965-2016') +
+  stat_function(
+    fun = function(x) {(dnorm(x, eq.summary$mean, eq.summary$sd)) * eq.summary$count * bw},
+    color = "blue", size = 1, alpha = .5
+  ) +
+  scale_y_continuous(minor_breaks = seq(0, 1E5, by = 250)) +
+  scale_x_continuous(minor_breaks = seq(0, 9.2, by = bw))
+```
+
+Under this bad normal model, how many 7.0+ earthquakes would be expected over the time period?
+
+```{r}
+pnorm(7, mean = eq.summary$mean, sd = eq.summary$sd, lower.tail = FALSE) * eq.summary$count
+```
+
+But in actuality, `r earthquakes %>% filter(Magnitude >= 7) %>% nrow() %>% I()` were observed. As expected, a normal distribution is an exceptionally poor approximation to earthquake magnitudes. Besides the truncation issue where no earthquakes below 5.5 were included in the data, there is also an obvious long right tail.
+
+# Computing averages
+
+Even though earthquake magnitudes clearly do not follow the Gaussian distribution, suitably normalized averages will eventually do so as a consequence of the CLT. Let's look at the average magnitudes of all 5.5+ earthquakes by month.
+
+```{r}
+eq.by.month <- earthquakes %>%
+  mutate(
+    TruncDate = date %>% floor_date('month')
+  )
+# Format data
+eq.by.month.agg <- eq.by.month %>%
+  group_by(TruncDate) %>%
+  summarise(
+    AvgMagnitude = mean(Magnitude)
+    , n = length(Magnitude)
+  )
+```
+
+```{r}
+eq.mo.summary <- summary_stats(eq.by.month.agg, 'AvgMagnitude')
+print(eq.mo.summary)
+```
+
+```{r, fig.width = 6, fig.height = 3}
+bw <- .025
+eq.by.month.agg %>%
+  ggplot(aes(x = AvgMagnitude)) +
+  geom_histogram(binwidth = bw, alpha = .5) +
+  labs(title = 'Average magnitude of 5.5+ earthquakes per month, 1965-2016', x = 'Avg. Monthly Magnitude') +
+  stat_function(
+    fun = function(x) {(dnorm(x, eq.mo.summary$mean, eq.mo.summary$sd)) * eq.mo.summary$count * bw},
+    color = "blue", size = 1, alpha = .5
+  ) +
+  scale_y_continuous(minor_breaks = seq(0, 1E5, by = 250)) +
+  scale_x_continuous(breaks = seq(0, 9.2, by = .1), minor_breaks = seq(0, 9.2, by = bw))
+```
+
+This is already much closer to a normal distribution. Under this model, how many months would we expect to see an average earthquake magnitude of 6.1+?
+
+```{r}
+pnorm(6.1, mean = eq.mo.summary$mean, sd = eq.mo.summary$sd, lower.tail = FALSE) * eq.mo.summary$count
+```
+
+In actuality, `r eq.by.month.agg  %>% filter(AvgMagnitude >= 6.1) %>% nrow() %>% I()` months were observed. While the model is still not a great fit, we see that simply aggregating the data led to a distribution that is better approximated by the normal.
+
+# Bootstrapping
+
+Finally, consider a single bootstrapped earthquake magnitudes dataset. What would those average monthly magnitudes look like?
+
+```{r, fig.width = 6, fig.height = 3}
+# Set seed for reproducible results
+set.seed(123)
+# Generate a single dataset
+eq.boot.first <- sample_frac(eq.by.month, replace = TRUE) %>%
+  group_by(TruncDate) %>%
+  summarise(
+    AvgMagnitude = mean(Magnitude)
+    , n = length(Magnitude)
+  )
+```
+
+```{r}
+eq.boot.summary <- summary_stats(eq.boot.first, 'AvgMagnitude')
+print(eq.boot.summary)
+```
+
+```{r, fig.width = 6, fig.height = 3}
+bw <- .025
+eq.boot.first %>%
+  ggplot(aes(x = AvgMagnitude)) +
+  geom_histogram(binwidth = bw, alpha = .5) +
+  labs(title = 'Average magnitude of 5.5+ earthquakes per month,\n bootstrapped data', x = 'Avg. Monthly Magnitude') +
+  stat_function(
+    fun = function(x) {(dnorm(x, eq.boot.summary$mean, eq.boot.summary$sd)) * eq.boot.summary$count * bw},
+    color = "blue", size = 1, alpha = .5
+  ) +
+  scale_y_continuous(minor_breaks = seq(0, 1E5, by = 250)) +
+  scale_x_continuous(breaks = seq(0, 9.2, by = .1), minor_breaks = seq(0, 9.2, by = bw))
+```
+
+```{r}
+pnorm(6.1, mean = eq.boot.summary$mean, sd = eq.boot.summary$sd, lower.tail = FALSE) * eq.boot.summary$count
+```
+
+In actuality, `r eq.boot.first %>% filter(AvgMagnitude >= 6.1) %>% nrow() %>% I()` months were observed in this resampled dataset. So the bootstrapped estimate already provides better results than a model using the actual historical data! Is this a feature or coincidence? Let's create 1,000 bootstrapped datasets to check.
+
+```{r}
+set.seed(123)
+boot.results <- data.frame()
+# Bootstrapping loop
+for (i in 1:1000) {
+  eq.boot <- sample_frac(eq.by.month, replace = TRUE) %>%
+  group_by(TruncDate) %>%
+  summarise(
+    AvgMagnitude = mean(Magnitude)
+    , n = length(Magnitude)
+  )
+  eq.boot.summary <- summary_stats(eq.boot, 'AvgMagnitude')
+  boot.results <- rbind(
+    boot.results
+    , data.frame(
+      estimated = pnorm(6.1, mean = eq.boot.summary$mean, sd = eq.boot.summary$sd, lower.tail = FALSE) * eq.boot.summary$count
+      , observed = eq.boot  %>% filter(AvgMagnitude >= 6.1) %>% nrow()
+    )
+  )
+}
+```
+
+Here's a plot of the estimates of the number of months with an average earthquake magnitude of 6.1+.
+
+```{r}
+boot.preds <- summary_stats(boot.results, 'estimated')
+print(boot.preds)
+```
+
+
+```{r, fig.width = 6, fig.height = 3}
+bw <- 1
+boot.results %>%
+  ggplot(aes(x = estimated)) +
+  geom_histogram(binwidth = bw, alpha = .5) +
+  labs(title = 'Bootstrapped predictions of count of months experiencing a 6.1+\n average magnitude when averaging across 5.5+ earthquakes\n over a 52-year period', x = 'Prediction') +
+  stat_function(
+    fun = function(x) {(dnorm(x, boot.preds$mean, boot.preds$sd)) * boot.preds$count * bw},
+    color = "blue", size = 1, alpha = .5
+  ) +
+  scale_x_continuous(minor_breaks = 1:100)
+```
+
+We've finally managed to create a normal distribution out of earthquake data. Note that the observed mean across all simulations, `r boot.preds$mean %>% round(2) %>% I()`, falls very close to the true count observed in the historical data set, `r eq.by.month.agg  %>% filter(AvgMagnitude >= 6.1) %>% nrow() %>% I()`.
+
+How can this be? This last plot is a plot of averages: each observation is a count of months across the entire 52-year period, not a count of individual months anymore. We know that within each 52-year history earthquakes are not independent; however, the unit of analysis is now the set of "alternate 52-year histories" which are indeed independent from one another. With 1,000 of these alternate histories the normal approximation is very good.
+
+After all that, here are my takeaways.
+
+1) Bootstrapping does not require the usual modeling assumptions on a dataset. If all you're trying to do is estimate a quantity like mean or standard deviation, it doesn't matter if the data follows a typical distribution, if individual observations are i.i.d., if there is time dependence, etc.
+2) Plotting bootstrapped estimates tends to result in a normal distribution even when the underlying phenomenon is not normal, if there's time dependence, etc.
