@@ -30,7 +30,7 @@ This question is a generalization of the birthday problem, which goes something 
 
 > You're at a party with 29 other people. How likely is it that someone shares a birthday with another partygoer?
 
-Let's make a couple assumptions. Suppose no attendees are born on a leap year, and people are equally likely to be born on each of the 365 remaining possible days. 
+Let's make a couple assumptions. Suppose no attendees are born on a leap year, and people are equally likely to be born on each of the 365 remaining days. 
 
 The chance at least one pair shares a birthday is simply:
 
@@ -42,9 +42,9 @@ If you're the only one in the room, clearly the probability that someone else sh
 
 If there are two people total in the room, then both would need to be born on the same day to share a birthday, which is a $1/365$ chance.
 
-If there are three in the room, it gets a bit more complicated. The odds are *not* additive, i.e. $2/365$, which is the most common mistake I've seen. We need to compare the individuals not with you (2 comparisons), but with each other as well (3 comparisons). Essentially, they all have to be born on different days.
+If there are three in the room, it gets a bit more complicated. The odds are *not* additive, i.e. $2/365$, which is the most common mistake I've seen. We need to compare the individuals not with you (2 comparisons), but with each other as well (3 total comparisons). Essentially, they all have to be born on different days.
 
-For no one to share a birthday, you can be born on any of the 365 days. The second partygoer can be born on any of the 364 remaining days, and the third on any of the 363 days not already taken. These probabilities all multiply. In other words:
+For no one to share a birthday, the first person can be born on any of the 365 days. The second partygoer can be born on any of the 364 remaining days, and the third on any of the 363 days not already taken. These probabilities all multiply. In other words:
 
 $$ P(\text{share}) = 1 - P(\text{not share}) = 1 - \frac{365}{365} * \frac{364}{365} * \frac{363}{365} \approx .0082 $$
 
@@ -69,12 +69,12 @@ p.bday <- function(n) {
 }
 ```
 ```{r}
-p.bday(30) %>% print()
+p.bday(30)
 ```
 
-There's about a `r p.bday(30) %>% scales::percent() %>% I()` chance at least one pair the room of 30 partygoers shares a birthday!
+There's about a `r p.bday(30) %>% scales::percent() %>% I()` chance at least one pair in the room of 30 partygoers shares a birthday!
 
-Visualizing this for a range of $n$, we see that the probabilities increase much more quickly than the 1/365 linear trendline (extrapolated from the first two points):
+Visualizing this for a range of $n$, we see that the probabilities increase much more quickly than the 1/365 slope linear trendline (extrapolated from the first two points):
 
 ```{r}
 n <- 50
@@ -106,7 +106,7 @@ Or:
 
 $$ 0.5 \approx \prod_{x = 1}^{100} \frac{s + 1 - x}{s} $$
 
-Which simplifies to:
+Which is written out as:
 
 $$ 0.5 \approx \frac{(s)(s-1)\dots(s-99)}{s^{100}} $$
 
@@ -114,7 +114,7 @@ To avoid integer overflow this should be rewritten in log space.
 
 $$ \ln(.5) \approx \ln(s) + \ln(s-1) + \dots + \ln(s-99) - 100\ln(s) \\= \ln(s-1) + \ln(s-99) - 99 \ln(s) $$
 
-Define $f(s)$ as the probability of a repeated song for arbitrary $s$.
+Define $f(s)$ as the probability of a repeated song for an arbitrary size $s$ playlist.
 
 ```{r}
 f.s <- function(s) {
@@ -170,20 +170,20 @@ p.generalized <- function(n, s, log = FALSE) {
   ) {
     stop('Requires integer inputs')
   }
-  # Too small n gives P = 1
+  # Too small n gives P = 0
   if(n <= 1) {
     ifelse(
       log
+      , return(-Inf)
       , return(0)
-      , return(exp(0))
     )
   }
-  # Too small s gives P = 1
+  # Too small s gives P = 0
   if(s < n) {
     ifelse(
       log
+      , return(-Inf)
       , return(0)
-      , return(exp(0))
     )
   }
   # All other n, s
@@ -216,3 +216,5 @@ Testing it on the Riddler:
 ```{r}
 1 - p.generalized(n = 100, s = 7175)
 ```
+
+All results are exactly as expected.
