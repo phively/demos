@@ -112,7 +112,7 @@ $$ 0.5 \approx \frac{(s)(s-1)\dots(s-99)}{s^{100}} $$
 
 To avoid integer overflow this should be rewritten in log space.
 
-$$ \ln(.5) \approx \ln(s) + \ln(s-1) + \dots + \ln(s-99) - 100\ln(s) \\= \ln(s-1) + \ln(s-99) - 99 \ln(s) $$
+$$ \ln(.5) \approx \ln(s) + \ln(s-1) + \dots + \ln(s-99) - 100\ln(s) \\= \ln(s-1) + \dots + \ln(s-99) - 99 \ln(s) $$
 
 Define $f(s)$ as the probability of a repeated song for an arbitrary size $s$ playlist.
 
