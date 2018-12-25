@@ -1,0 +1,218 @@
+---
+title: "Generalizing the birthday problem"
+output:
+  html_notebook:
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+---
+
+Inspired by [FiveThirtyEight's 2018 Christmas Riddler problem](https://fivethirtyeight.com/features/santa-needs-some-help-with-math/).
+
+```{r setup, message = FALSE, warning = FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+# Riddler Classic
+
+> From Steven Pratt, the best way to spread Christmas cheer is singing loud for all to hear:
+>
+> In Santa’s workshop, elves make toys during a shift each day. On the overhead radio, Christmas music plays, with a program randomly selecting songs from a large playlist.
+>
+> During any given shift, the elves hear 100 songs. A cranky elf named Cranky has taken to throwing snowballs at everyone if he hears the same song twice. This has happened during about half of the shifts. One day, a mathematically inclined elf named Mathy tires of Cranky’s sodden outbursts. So Mathy decides to use what he knows to figure out how large Santa’s playlist actually is.
+>
+> Help Mathy out: How large is Santa’s playlist?
+
+# Birthday problem
+
+This question is a generalization of the birthday problem, which goes something like this.
+
+> You're at a party with 29 other people. How likely is it that someone shares a birthday with another partygoer?
+
+Let's make a couple assumptions. Suppose no attendees are born on a leap year, and people are equally likely to be born on each of the 365 remaining possible days. 
+
+The chance at least one pair shares a birthday is simply:
+
+$$ P(\text{share}) = 1 - P(\text{not share}) $$
+
+To make this concrete, let $n$ be the total number of partygoers and consider $n \in \{1, 2, 3\}$.
+
+If you're the only one in the room, clearly the probability that someone else shares your birthday is 0.
+
+If there are two people total in the room, then both would need to be born on the same day to share a birthday, which is a $1/365$ chance.
+
+If there are three in the room, it gets a bit more complicated. The odds are *not* additive, i.e. $2/365$, which is the most common mistake I've seen. We need to compare the individuals not with you (2 comparisons), but with each other as well (3 comparisons). Essentially, they all have to be born on different days.
+
+For no one to share a birthday, you can be born on any of the 365 days. The second partygoer can be born on any of the 364 remaining days, and the third on any of the 363 days not already taken. These probabilities all multiply. In other words:
+
+$$ P(\text{share}) = 1 - P(\text{not share}) = 1 - \frac{365}{365} * \frac{364}{365} * \frac{363}{365} \approx .0082 $$
+
+Thus, given $n$ people:
+
+$$ P(\text{not share}) = \left\{ 
+  \begin{array}{ll}
+    \prod_{x=1}^{n} \frac{366-x}{365} ~ , ~ n \in [1,366]
+    \\ 0, n > 366
+  \end{array}
+\right. $$
+
+So for the case where $n = 30$ we have:
+
+$$ P(\text{share}) = 1 - \prod_{x = 1}^{30} \frac{366-x}{365} $$
+
+```{r}
+# Function to compute birthday probabilities
+p.bday <- function(n) {
+  if (n > 366) {return(1)}
+  return(1 - prod(365:(366 - n)) / 365^n)
+}
+```
+```{r}
+p.bday(30) %>% print()
+```
+
+There's about a `r p.bday(30) %>% scales::percent() %>% I()` chance at least one pair the room of 30 partygoers shares a birthday!
+
+Visualizing this for a range of $n$, we see that the probabilities increase much more quickly than the 1/365 linear trendline (extrapolated from the first two points):
+
+```{r}
+n <- 50
+data.frame(
+  attendees = 1:n
+  , probability = sapply(1:n, FUN = p.bday)
+  , linear.trend = {0:(n - 1)}/365
+) %>%
+  ggplot(aes(x = attendees, y = probability)) +
+  geom_point() +
+  geom_line() +
+  geom_line(aes(y = linear.trend), color = 'blue', linetype = 'dashed') +
+  labs(title = 'Probability of sharing a birthday by number of attendees')
+```
+
+As an aside, note that due to the $365^n$ term in the denominator, for large $n$ this function will lead to computational overflow errors.
+
+```{r}
+p.bday(300)
+```
+
+# Riddler solution
+
+The Riddler is this same type of problem, but the size of the playlist $s$ is unknown. So we have:
+
+$$ 0.5 \approx 1 - \prod_{x = 1}^{100} \frac{s + 1 - x}{s} $$
+
+Or:
+
+$$ 0.5 \approx \prod_{x = 1}^{100} \frac{s + 1 - x}{s} $$
+
+Which simplifies to:
+
+$$ 0.5 \approx \frac{(s)(s-1)\dots(s-99)}{s^{100}} $$
+
+To avoid integer overflow this should be rewritten in log space.
+
+$$ \ln(.5) \approx \ln(s) + \ln(s-1) + \dots + \ln(s-99) - 100\ln(s) \\= \ln(s-1) + \ln(s-99) - 99 \ln(s) $$
+
+Define $f(s)$ as the probability of a repeated song for arbitrary $s$.
+
+```{r}
+f.s <- function(s) {
+  if(s < 100) {return(1)}
+  logp <- -99 * log(s)
+  for (i in 1:99) {
+    logp <- logp + log(s - i)
+  }
+  return(1 - exp(logp))
+}
+```
+```{r}
+n <- seq(500, 15000, by = 500)
+data.frame(
+  songs = n
+  , probability = sapply(n, FUN = f.s)
+) %>%
+  ggplot(aes(x = songs, y = probability)) +
+  geom_point() +
+  geom_line() +
+  geom_hline(yintercept = .5, color = 'blue', linetype = 'dashed') +
+  scale_x_continuous(breaks = seq(0, 1E6, by = 1000)) +
+  labs(title = 'Probability of repeated songs by size of playlist')
+```
+
+We see the playlist must be between 7000 and 7500 songs. To be precise, we need to solve for $f(s) - .5 \approx 0$.
+
+```{r}
+s.candidates <- sapply(7000:7500, f.s) - .5
+```
+
+Which $s$ first tips from positive to negative?
+
+```{r}
+7000 + which(s.candidates < 0)[1] - 1
+```
+
+So there are either `r {7000 + which(s.candidates < 0)[1] - 1} %>% I()` or `r {7000 + which(s.candidates < 0)[1] - 2} %>% I()` songs on the playlist depending on how Mathy prefers to round.
+
+# Generalized birthday problem
+
+The preceding two functions provide an easy way to generalize the birthday probability calculation for arbitrary $n$ and $s$.
+
+```{r}
+# General function to calculate P(not share)
+p.generalized <- function(n, s, log = FALSE) {
+  # Error checking
+  if(
+    !is.numeric(n)
+    || n != round(n)
+    || !is.numeric(s)
+    || s != round(s)
+  ) {
+    stop('Requires integer inputs')
+  }
+  # Too small n gives P = 1
+  if(n <= 1) {
+    ifelse(
+      log
+      , return(0)
+      , return(exp(0))
+    )
+  }
+  # Too small s gives P = 1
+  if(s < n) {
+    ifelse(
+      log
+      , return(0)
+      , return(exp(0))
+    )
+  }
+  # All other n, s
+  logp <- (1 - n) * log(s)
+  for (i in 1:(n - 1)) {
+    logp <- logp + log(s - i)
+  }
+  ifelse(
+    log
+    , return(logp)
+    , return(exp(logp))
+  )
+}
+```
+
+Let's test this on the birthday problem.
+
+```{r}
+1 - p.generalized(n = 30, s = 365)
+```
+
+Since the operations take place in log space, this works even for large $n$.
+
+```{r}
+p.generalized(n = 365, s = 365)
+```
+
+Testing it on the Riddler:
+
+```{r}
+1 - p.generalized(n = 100, s = 7175)
+```
