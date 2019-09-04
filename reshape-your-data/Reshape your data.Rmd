@@ -1,0 +1,126 @@
+---
+title: "Reshape your data!"
+output:
+  html_notebook:
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+---
+
+It's widely known that one needs to have the right data before beginning an analysis. I'd like to suggest that one also needs to ensure the data is *properly formatted* before beginning the analysis. This will save lots of typing and debugging down the road!
+
+```{r setup, message = FALSE, warning = FALSE}
+library(tidyverse)
+```
+
+# Sample data
+
+Data is often provided in a cross-tabluated format. For example, suppose we receive this revenue by year dataset:
+
+```{r}
+revenue <- data.frame(
+  client = c('A', 'B', 'C')
+  , fy17 = c(100, 400, 250)
+  , fy18 = c(200, 0, 250)
+  , fy19 = c(300, 500, 250)
+)
+
+print(revenue)
+```
+
+# Summarizing the data as-is
+
+Suppose we want to calculate average yearly revenue per client. Here's one approach.
+
+```{r}
+revenue %>%
+  # Calculate column means
+  select(fy17:fy19) %>%
+  colMeans() %>%
+  # Clean up the output
+  data.frame() %>%
+  rename(`mean(amt)` = names(.)[1])
+```
+
+But is this correct? Should B, who made no orders in fy18, be excluded from that year's calculation?
+
+```{r}
+revenue %>%
+  # Replace 0 with NA
+  na_if(0) %>%
+  # Calculate column means
+  select(fy17:fy19) %>%
+  colMeans(na.rm = TRUE) %>%
+  # Clean up the output
+  data.frame() %>%
+  rename(`mean(amt)` = names(.)[1])
+```
+
+Suppose we want to calculate additional metrics, like standard deviation. Now we can't just use the nice `colMeans()` shortcut anymore. Without reshaping the data the simplest solution I could think of requires several extra steps:
+
+```{r}
+cbind(
+  # Calculate column means
+  revenue %>%
+    na_if(0) %>%
+    select(fy17:fy19) %>%
+    colMeans(na.rm = TRUE)
+  # Calculate column standard deviations
+  , revenue %>%
+    na_if(0) %>%
+    select(fy17:fy19) %>%
+    apply(
+      MARGIN = 2
+      , FUN = sd
+      , na.rm = TRUE
+    )
+) %>%
+  # Clean up the output
+  data.frame() %>%
+  rename(
+    `mean(amt)` = names(.)[1]
+    , `sd(amt)` = names(.)[2]
+  )
+```
+
+This approach is getting pretty hard to follow and takes a lot of typing for each additional field, and even includes duplicate code (though admittedly this could be handled with a temporary assignment).
+
+# A better approach
+
+Getting the data into a "long" format, with one column each for client, year, and amount, makes analysis much easier.
+
+```{r}
+reshaped <- revenue %>%
+  # Create new year and amt fields for the existing columns
+  gather('year', 'amt', fy17:fy19) %>%
+  # Filter out the 0 amount years at this stage to avoid having to na_if() later
+  filter(amt > 0) %>%
+  # we could even make the year column numeric (quickest way is convert appearances of fy into 20)
+  mutate(
+    year = year %>%
+      str_replace(pattern = 'fy', replacement = '20') %>%
+      as.numeric()
+  )
+
+print(reshaped)
+```
+
+Now that the data is in a long format it's very easy to calculate whatever summary statistics we want.
+
+```{r}
+reshaped %>%
+  # Aggregate within year
+  group_by(year) %>%
+  # Now we can enter in whatever summary statistics we want with just a single line of code
+  summarise(
+    mean(amt)
+    , sd(amt)
+    , `sem(amt)` = sd(amt) / sqrt(length(amt))
+  )
+```
+
+This is much less code, and easier to read to boot!
+
+# Moral
+
+Having the right data *formatted properly* makes the analysis much easier.

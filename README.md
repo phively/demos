@@ -18,3 +18,9 @@ Demonstrates how the CLT applies to non-normal data using a USGS earthquake data
 *Updated on 2018-12-25*
 
 Generalizing the birthday problem, inspired by the Christmas 2018 Riddler from FiveThirtyEight
+
+## [Reshape your data!](https://phively.github.io/demos/reshape-your-data/Reshape%20your%20data.nb.html)
+
+*Updated on 2019-09-04*
+
+Explains how properly reshaping a dataset in wide/long format before beginning an analysis can save lots of time
