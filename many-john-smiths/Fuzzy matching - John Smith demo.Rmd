@@ -1,0 +1,126 @@
+---
+title: "Fuzzy matching - John Smith demo"
+output:
+  html_notebook:
+    code_folding: show
+    toc: true
+    toc_float: true
+---
+
+Data and concept from [Tackling the John Smith Problem – deduplicating data via fuzzy matching in R](https://eight2late.wordpress.com/2019/10/09/tackling-the-john-smith-problem-deduplicating-data-via-fuzzy-matching-in-r/).
+
+```{r setup}
+library(tidyverse)
+library(readxl)
+library(stringdist)
+
+# Hide the dplyr .groups message
+options(dplyr.summarise.inform = FALSE)
+```
+
+# Load data
+
+```{r}
+johns <- read_xlsx(path = 'data/many_john_smiths.xlsx')
+
+print(johns)
+```
+
+Looks like a pretty dirty dataset; there appear to be only 2 distinct individuals, each with 5 duplicate records.
+
+# Distance matrices
+
+The `stringdistmatrix` function computes pairwise distance matrices for each combination of strings in the vector. Distance is defined as the number of character transformations required to turn one string into the other. For example:
+
+```{r}
+c('sun', 'son', 'done') %>%
+  stringdistmatrix(useNames = TRUE)
+```
+
+  * sun -> son is 1 (replace u with o)
+  * sun -> done is 3 (replace s with d, u with o, add e to end)
+  * son -> done is 2 (replace s with d, add e to end)
+  * done -> don't would be ... (exercise for the reader)
+  * don't -> donut would be ...
+
+If $d_{i,j}$ represents string distance for word pairs $i$ and $j$, and $l_i$ the character length of string $i$, we can define similarity score as:
+
+$$ 1 - \frac{d_{i,j}}{\max(l_i,l_j)} $$
+
+```{r}
+similarity_score <- function(str_input, useNames = TRUE) {
+  # Input string lengths
+  length_i <- str_length(str_input)
+  # Find max(l_i, l_j)
+  maxlen <- combn(length_i, m = 2, FUN = max)
+  # Compute distance matrix
+  dist_matrix <- str_input %>% stringdistmatrix(useNames = useNames)
+  # Compute similarity score matrix
+  sim_matrix <- 1 - (dist_matrix / maxlen) %>% as.matrix()
+  # Set lower triangular and diagonal to 0
+  sim_matrix[lower.tri(sim_matrix)] <- 0
+  diag(sim_matrix) <- 0
+  sim_matrix %>%
+    return()
+}
+```
+
+Create a new function returning the largest pairwise combination of values.
+
+```{r}
+# Adapted from:
+# https://stackoverflow.com/questions/32544566/find-the-largest-values-on-a-matrix-in-r
+nlargest <- function(m, n) {
+  res <- order(m, decreasing = TRUE)[seq_len(n)]
+  pos <- arrayInd(res, dim(m), useNames = TRUE)
+  list(values = m[res], position = pos)
+}
+```
+
+And a function to print results:
+
+```{r}
+print_nlargest <- function(sim_score, sim_list, n) {
+  for (i in 1:n) {
+    rec <- rownames(sim_score)[sim_list$position[i, 1]]
+    sim_rec <- colnames(sim_score)[sim_list$position[i, 2]]
+    cat("score: ", sim_list$values[i], "\n")
+    cat("record 1: ", rec, "\n")
+    cat ("record 2: ", sim_rec, "\n\n")
+  }
+}
+```
+
+# Parsing data
+
+To make this work, we need to choose fields to examine to generate the distance scores.
+
+```{r}
+johns <- johns %>%
+  mutate(
+    concat = paste0(FirstName, LastName, AddressLine1, AddressPostcode, AddressSuburb, Phone)
+    , printable = paste(Title, FirstName, LastName, AddressLine1, AddressPostcode, AddressSuburb, Phone)
+  )
+
+johns %>% select(printable) %>% print()
+```
+
+Now test each of my functions, defined in the previous step.
+
+```{r}
+sim_score <- similarity_score(johns$concat)
+similarity_score(johns$concat, useNames = FALSE) %>% round(3)
+```
+
+```{r}
+sim_list <- nlargest(sim_score, 5)
+print(sim_list)
+```
+
+Eyeballing the full matrix above, this all makes sense.
+
+```{r}
+print_nlargest(sim_score, sim_list, n = 5)
+```
+
+The results look right to me.

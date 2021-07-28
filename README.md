@@ -24,3 +24,9 @@ Generalizing the birthday problem, inspired by the Christmas 2018 Riddler from F
 *Updated on 2019-09-04*
 
 Explains how properly reshaping a dataset in wide/long format before beginning an analysis can save lots of time
+
+## [Fuzzy matching - John Smith demo](https://phively.github.io/demos/many-john-smiths/Fuzzy%20matching%20-%20John%20Smith%20demo.nb.html)
+
+*Updated on 2021-07-28*
+
+Explores using the `stringdist` package to generate 0-1 similarity scores for individual strings and across rows/columns of data
