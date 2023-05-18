@@ -31,6 +31,10 @@ Explains how properly reshaping a dataset in wide/long format before beginning a
 
 Explores using the `stringdist` package to generate 0-1 similarity scores for individual strings and across rows/columns of data
 
-## [Featuretools demo](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/01%20Getting%20started%20with%20Featuretools.ipynb)
+## [Featuretools demo](https://github.com/phively/demos/tree/master/featuretools-demo)
 
 Exploring the functionality of Python's Featuretools package for feature engineering
+
+* [01 Getting started with Featuretools.ipynb](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/01%20Getting%20started%20with%20Featuretools.ipynb)
+* [02 Understanding EntitySets.ipynb](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/02%20Understanding%20EntitySets.ipynb)
+* [03 Deep feature synthesis.ipynb](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/03%20Deep%20feature%20synthesis.ipynb)
