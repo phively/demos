@@ -38,3 +38,12 @@ Exploring the functionality of Python's Featuretools package for feature enginee
 * [01 Getting started with Featuretools.ipynb](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/01%20Getting%20started%20with%20Featuretools.ipynb)
 * [02 Understanding EntitySets.ipynb](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/02%20Understanding%20EntitySets.ipynb)
 * [03 Deep feature synthesis.ipynb](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/03%20Deep%20feature%20synthesis.ipynb)
+* [04 Feature primitives.ipynb](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/04%20Feature%20primitives.ipynb)
+* [05 Woodwork typing.ipynb](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/05%20Woodwork%20typing.ipynb)
+* [06 Handling time.ipynb](https://nbviewer.org/github/phively/demos/blob/master/featuretools-demo/06%20Handling%20time.ipynb)
+
+## Python snippets
+
+Quick demonstrations of Python syntax and implementing data science ideas
+
+[Weighted sum_stats example.ipynb](https://github.com/phively/demos/blob/master/python-snippets/Weighted%20sum_stats%20example.ipynb) = Pandas data frame assignment and basic matrix math with a weight vector
